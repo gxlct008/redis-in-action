@@ -13,7 +13,7 @@ redis 127.0.0.1:6379> del hello             #H
 (integer) 1                                 #I
 redis 127.0.0.1:6379> get hello             #J
 (nil)
-redis 127.0.0.1:6379> 
+redis 127.0.0.1:6379>
 # <end id="simple-string-calls"/>
 #A Start the redis-cli client up
 #D Set the key 'hello' to the value 'world'
@@ -46,7 +46,7 @@ redis 127.0.0.1:6379> lpop list-key         #D
 redis 127.0.0.1:6379> lrange list-key 0 -1  #D
 1) "item2"                                  #D
 2) "item"                                   #D
-redis 127.0.0.1:6379> 
+redis 127.0.0.1:6379>
 # <end id="simple-list-calls"/>
 #A When we push items onto a LIST, the command returns the current length of the list
 #B We can fetch the entire list by passing a range of 0 for the start index, and -1 for the last index
@@ -81,7 +81,7 @@ redis 127.0.0.1:6379> srem set-key item2    #D
 redis 127.0.0.1:6379>  smembers set-key
 1) "item"
 2) "item3"
-redis 127.0.0.1:6379> 
+redis 127.0.0.1:6379>
 # <end id="simple-set-calls"/>
 #A When adding an item to a SET, Redis will return a 1 if the item is new to the set and 0 if it was already in the SET
 #B We can fetch all of the items in the SET, which returns them as a sequence of items, which is turned into a Python set from Python
@@ -164,7 +164,11 @@ def article_vote(conn, user, article):
 
     article_id = article.partition(':')[-1]         #D
     if conn.sadd('voted:' + article_id, user):      #E
-        conn.zincrby('score:', article, VOTE_SCORE) #E
+        # conn.zincrby('score:', article, VOTE_SCORE) #E
+
+        # Redis >= 3.0 版本，需要调换参数的位置，
+        # 改为如下写法：
+        conn.zincrby('score:', VOTE_SCORE, article)
         conn.hincrby(article, 'votes', 1)           #E
 # <end id="upvote-code"/>
 #A Prepare our constants
@@ -192,8 +196,13 @@ def post_article(conn, user, title, link):
         'votes': 1,                             #C
     })                                          #C
 
-    conn.zadd('score:', article, now + VOTE_SCORE)  #D
-    conn.zadd('time:', article, now)                #D
+    # conn.zadd('score:', article, now + VOTE_SCORE)  #D
+    # conn.zadd('time:', article, now)                #D
+
+    # Redis >= 3.0 版本，需要将参数写成 map 格式
+    # 改为如下写法：
+    conn.zadd('score:', {article: now + VOTE_SCORE})  #D
+    conn.zadd('time:', {article: now})                #D
 
     return article_id
 # <end id="post-article-code"/>
@@ -304,7 +313,7 @@ class TestCh01(unittest.TestCase):
         self.assertTrue(len(articles) >= 1)
 
         to_del = (
-            conn.keys('time:*') + conn.keys('voted:*') + conn.keys('score:*') + 
+            conn.keys('time:*') + conn.keys('voted:*') + conn.keys('score:*') +
             conn.keys('article:*') + conn.keys('group:*')
         )
         if to_del:
